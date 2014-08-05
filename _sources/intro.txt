@@ -1,0 +1,24 @@
+.. _Intro:
+
+Introduction to pySIML
+======================
+
+pySIML gives you easy access to SIML, an extremely fast method for computing
+LINGO chemical similarities [Vidal05]_. There are existing implementations of
+LINGO, such as that included in OpenEye's OEChem toolkit - so why bother with
+SIML?
+
+**Speed.**
+
+For several classes of important problems, SIML is significantly faster than
+existing implementations of LINGOs. In particular, for M x N similarity problems,
+in which one needs to compare every molecule in a set of size M against every other
+molecule in a set of size N (and M and N are reasonably large, on the order of
+hundreds), SIML on a single-core CPU is several times as fast as existing implementations
+of LINGO. SIML also supports computing LINGOs on a CUDA-capable GPU, which allows over
+eightyfold speedup relative to even fast CPUs.
+
+
+SIML and pySIML live at https://simtk.org/home/siml.
+
+

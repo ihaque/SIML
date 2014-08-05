@@ -1,0 +1,62 @@
+.. _Preprocessing:
+
+Preprocessing SMILES in pySIML
+==============================
+
+-----------------
+The Short Version
+-----------------
+
+Just use :meth:`~pysiml.compiler.cSMILEStoMatrices`, and don't look back.
+
+----------------
+The Long Version
+----------------
+
+As explained in the :ref:`Concepts`, two things must be done to SMILES strings
+before they can be used for LINGO similarity comparison:
+
+  * Certain transformations must be performed, such as changing ring closure
+    digits and stripping names
+  * They must be converted to the SIML internal numerical representation.
+
+The :ref:`pysiml.compiler <compiler>` section provides details on how to do this
+conversion.
+
+The ``pysiml.compiler`` module provides both a pure-Python converter 
+:meth:`~pysiml.compiler.SMILEStoMatrices` as well as one based around a C 
+extension, :meth:`~pysiml.compiler.cSMILEStoMatrices`. It is important to note
+that these two **DO NOT** produce the same output. The Python module transforms
+all digits in the SMILES string to zeroes; this will incorrectly affect charge 
+numbers, isotope indicators, and hydrogen counts. The C module performs the
+following changes:
+
+  * Change all digits to zero, except for numbers following a '+' or '-' (charge
+    counts), those following an 'H' (hydrogen counts), or a '[' (isotope
+    indicators).
+  * Reduce multiple-digit ring-closure indicators (e.g., '%13') to one digit
+    ('%0') to normalize ring formatting. Currently only works for molecules
+    with under 100 rings, due to ambiguities in the SMILES specification.
+
+Both the C and Python modules handle stripping of names and newlines from SMILES
+strings.
+
+In general, **there is almost no reason to use the Python compiler**; 
+:meth:`cSMILEStoMatrices` is nearly 100 times faster and is more correct to the
+LINGO flavor outlined in [Grant06]_. The Python compiler :meth:`SMILEStoMatrices`
+is included only as a substitute in case a pure-Python replacement is needed,
+or it is necessary to compute SMILES strings that have been transformed in an
+identical way to the SIML compiler (e.g., to pass into a different LINGO package
+for comparison).
+
+.. _compiler:
+
+--------------------------------------------------------------------------------
+pysiml.compiler - Transforming SMILES strings into SIML internal representations
+--------------------------------------------------------------------------------
+
+.. automodule:: pysiml.compiler
+    :members:
+    :undoc-members:
+
+

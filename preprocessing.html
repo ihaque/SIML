@@ -1,0 +1,222 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Preprocessing SMILES in pySIML &mdash; pySIML v1.5 documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.5',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pySIML v1.5 documentation" href="index.html" />
+    <link rel="next" title="Similarity calculations with pySIML" href="similarity.html" />
+    <link rel="prev" title="pySIML Concepts" href="concepts.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             accesskey="M">modules</a> |</li>
+        <li class="right" >
+          <a href="similarity.html" title="Similarity calculations with pySIML"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="concepts.html" title="pySIML Concepts"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="preprocessing-smiles-in-pysiml">
+<span id="preprocessing"></span><h1>Preprocessing SMILES in pySIML<a class="headerlink" href="#preprocessing-smiles-in-pysiml" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="the-short-version">
+<h2>The Short Version<a class="headerlink" href="#the-short-version" title="Permalink to this headline">¶</a></h2>
+<p>Just use <a title="pysiml.compiler.cSMILEStoMatrices" class="reference internal" href="#pysiml.compiler.cSMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">cSMILEStoMatrices()</span></tt></a>, and don&#8217;t look back.</p>
+</div>
+<div class="section" id="the-long-version">
+<h2>The Long Version<a class="headerlink" href="#the-long-version" title="Permalink to this headline">¶</a></h2>
+<p>As explained in the <a class="reference external" href="concepts.html#concepts"><em>pySIML Concepts</em></a>, two things must be done to SMILES strings
+before they can be used for LINGO similarity comparison:</p>
+<blockquote>
+<ul class="simple">
+<li>Certain transformations must be performed, such as changing ring closure
+digits and stripping names</li>
+<li>They must be converted to the SIML internal numerical representation.</li>
+</ul>
+</blockquote>
+<p>The <a class="reference internal" href="#compiler"><em>pysiml.compiler</em></a> section provides details on how to do this
+conversion.</p>
+<p>The <tt class="docutils literal"><span class="pre">pysiml.compiler</span></tt> module provides both a pure-Python converter
+<a title="pysiml.compiler.SMILEStoMatrices" class="reference internal" href="#pysiml.compiler.SMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">SMILEStoMatrices()</span></tt></a> as well as one based around a C
+extension, <a title="pysiml.compiler.cSMILEStoMatrices" class="reference internal" href="#pysiml.compiler.cSMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">cSMILEStoMatrices()</span></tt></a>. It is important to note
+that these two <strong>DO NOT</strong> produce the same output. The Python module transforms
+all digits in the SMILES string to zeroes; this will incorrectly affect charge
+numbers, isotope indicators, and hydrogen counts. The C module performs the
+following changes:</p>
+<blockquote>
+<ul class="simple">
+<li>Change all digits to zero, except for numbers following a &#8216;+&#8217; or &#8216;-&#8216; (charge
+counts), those following an &#8216;H&#8217; (hydrogen counts), or a &#8216;[&#8216; (isotope
+indicators).</li>
+<li>Reduce multiple-digit ring-closure indicators (e.g., &#8216;%13&#8217;) to one digit
+(&#8216;%0&#8217;) to normalize ring formatting. Currently only works for molecules
+with under 100 rings, due to ambiguities in the SMILES specification.</li>
+</ul>
+</blockquote>
+<p>Both the C and Python modules handle stripping of names and newlines from SMILES
+strings.</p>
+<p>In general, <strong>there is almost no reason to use the Python compiler</strong>;
+<tt class="xref docutils literal"><span class="pre">cSMILEStoMatrices()</span></tt> is nearly 100 times faster and is more correct to the
+LINGO flavor outlined in <a class="reference external" href="references.html#grant06">[Grant06]</a>. The Python compiler <tt class="xref docutils literal"><span class="pre">SMILEStoMatrices()</span></tt>
+is included only as a substitute in case a pure-Python replacement is needed,
+or it is necessary to compute SMILES strings that have been transformed in an
+identical way to the SIML compiler (e.g., to pass into a different LINGO package
+for comparison).</p>
+</div>
+<div class="section" id="module-pysiml.compiler">
+<span id="compiler"></span><h2>pysiml.compiler - Transforming SMILES strings into SIML internal representations<a class="headerlink" href="#module-pysiml.compiler" title="Permalink to this headline">¶</a></h2>
+<p>This module provides &#8220;compilers&#8221; to convert SMILES strings into the
+sparse-vector representation required for SIML. C and pure-Python 
+implementations are provided.</p>
+<dl class="function">
+<dt id="pysiml.compiler.SMILEStoMatrices">
+<tt class="descclassname">pysiml.compiler.</tt><tt class="descname">SMILEStoMatrices</tt><big>(</big><em>smileslist</em><big>)</big><a class="headerlink" href="#pysiml.compiler.SMILEStoMatrices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert the sequence of SMILES strings <em>smileslist</em> into a SIML SMILES set
+and list of molecule names (if present in the SMILES strings). Uses a pure
+Python implementation. See pySIML preprocessing documentation for details on
+transformations performed on the SMILES strings. Note that this does NOT perform
+the same transformations as the C version <a title="pysiml.compiler.cSMILEStoMatrices" class="reference internal" href="#pysiml.compiler.cSMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">cSMILEStoMatrices()</span></tt></a>.</p>
+<p>Returns a tuple of 5 values: a Lingo matrix, a count matrix, a length vector, 
+a magnitude vector, and a list of molecule names (all but the molecule names
+make up the &#8220;SMILES set&#8221;).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pysiml.compiler.SMILEStoMultiset">
+<tt class="descclassname">pysiml.compiler.</tt><tt class="descname">SMILEStoMultiset</tt><big>(</big><em>smiles</em><big>)</big><a class="headerlink" href="#pysiml.compiler.SMILEStoMultiset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns Lingo and count vectors for a single SMILES string <em>smiles</em>, as would
+correspond to a row in the Lingo or count matrices from <a title="pysiml.compiler.cSMILEStoMatrices" class="reference internal" href="#pysiml.compiler.cSMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">cSMILEStoMatrices()</span></tt></a> or
+<a title="pysiml.compiler.SMILEStoMatrices" class="reference internal" href="#pysiml.compiler.SMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">SMILEStoMatrices()</span></tt></a>. Performs no transformations on <em>smiles</em> prior to conversion.</p>
+<p>Note that in general, the results of this function will not be the same as
+those obtained from <a title="pysiml.compiler.SMILEStoMatrices" class="reference internal" href="#pysiml.compiler.SMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">SMILEStoMatrices()</span></tt></a> or <a title="pysiml.compiler.cSMILEStoMatrices" class="reference internal" href="#pysiml.compiler.cSMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">cSMILEStoMatrices()</span></tt></a> because
+this function does not preprocess the input strings.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pysiml.compiler.cSMILEStoMatrices">
+<tt class="descclassname">pysiml.compiler.</tt><tt class="descname">cSMILEStoMatrices</tt><big>(</big><em>smileslist</em><big>)</big><a class="headerlink" href="#pysiml.compiler.cSMILEStoMatrices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert the sequence of SMILES strings <em>smileslist</em> into a SIML SMILES set
+and list of molecule names (if present in the SMILES strings). Uses the SIML
+compiler C extension. See pySIML preprocessing documentation for details on
+transformations performed on the SMILES strings. Note that this does NOT perform
+the same transformations as the pure-Python version <a title="pysiml.compiler.SMILEStoMatrices" class="reference internal" href="#pysiml.compiler.SMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">SMILEStoMatrices()</span></tt></a>.</p>
+<p>Returns a tuple of 5 values: a Lingo matrix, a count matrix, a length vector, 
+a magnitude vector, and a list of molecule names (all but the molecule names
+make up the &#8220;SMILES set&#8221;).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pysiml.compiler.preprocessNumbers">
+<tt class="descclassname">pysiml.compiler.</tt><tt class="descname">preprocessNumbers</tt><big>(</big><em>smi</em>, <em>xtable=None</em><big>)</big><a class="headerlink" href="#pysiml.compiler.preprocessNumbers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a SMILES string, return a copy of the string with the same translations
+performed on it as would be done by the pure-Python preprocessor
+<a title="pysiml.compiler.SMILEStoMatrices" class="reference internal" href="#pysiml.compiler.SMILEStoMatrices"><tt class="xref docutils literal"><span class="pre">SMILEStoMatrices()</span></tt></a>.</p>
+<p>This method is primarily useful to compare the results
+of SIML Tanimoto calculation functions with those from other LINGO calculation
+packages, to ensure that identical SMILES strings are given to each.</p>
+<p><em>xtable</em> is an internal parameter and should always be set to None when called
+from user code.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">Preprocessing SMILES in pySIML</a><ul>
+<li><a class="reference external" href="#the-short-version">The Short Version</a></li>
+<li><a class="reference external" href="#the-long-version">The Long Version</a></li>
+<li><a class="reference external" href="#module-pysiml.compiler">pysiml.compiler - Transforming SMILES strings into SIML internal representations</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="concepts.html"
+                                  title="previous chapter">pySIML Concepts</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="similarity.html"
+                                  title="next chapter">Similarity calculations with pySIML</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="_sources/preprocessing.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="similarity.html" title="Similarity calculations with pySIML"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="concepts.html" title="pySIML Concepts"
+             >previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2010, Stanford University.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

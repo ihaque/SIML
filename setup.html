@@ -1,0 +1,169 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Installing pySIML &mdash; pySIML v1.5 documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.5',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pySIML v1.5 documentation" href="index.html" />
+    <link rel="next" title="pySIML Concepts" href="concepts.html" />
+    <link rel="prev" title="Introduction to pySIML" href="intro.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             accesskey="M">modules</a> |</li>
+        <li class="right" >
+          <a href="concepts.html" title="pySIML Concepts"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="intro.html" title="Introduction to pySIML"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="installing-pysiml">
+<span id="setup"></span><h1>Installing pySIML<a class="headerlink" href="#installing-pysiml" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>pySIML requires a working Python installation, since it is a collection of Python
+bindings. It has been successfully tested on Python 2.4 and 2.5 on both Linux and
+Mac OS X. It also requires that the development header files for the Python
+interpreter used be installed on the machine (e.g., on Ubuntu Linux, package
+<tt class="docutils literal"><span class="pre">python-dev</span></tt> must be installed, not just <tt class="docutils literal"><span class="pre">python</span></tt>).</li>
+<li>The <a class="reference external" href="http://numpy.scipy.org">NumPy</a> package, and its headers, must also be
+installed. pySIML makes extensive use of NumPy to store input and output data
+for the SIML algorithm.</li>
+<li>An <a class="reference external" href="http://openmp.org">OpenMP</a>-capable compiler is required to take advantage
+of multiple CPUs (parallel computations over multiple rows of a Tanimoto matrix
+in <a class="reference external" href="similarity.html#cpulingo"><em>CPULingo</em></a>).</li>
+<li><a class="reference external" href="http://mathema.tician.de/software/pycuda">PyCUDA</a> version 0.94 or greater is
+required for NVIDIA GPU support using <a class="reference external" href="similarity.html#gpulingo"><em>GPULingo</em></a>. Versions 0.93 and
+previous will not work properly! Note that at the time of this writing, 0.93 is the
+most recent release version. If this is still true, then you must retrieve a copy of
+the PyCUDA source code from the source repository (following the directions given on
+the PyCUDA homepage).</li>
+<li><a class="reference external" href="http://mathema.tician.de/software/pyopencl">PyOpenCL</a> is required for NVIDIA/AMD
+GPU support using <a class="reference external" href="similarity.html#ocllingo"><em>OCLLingo</em></a>.</li>
+</ul>
+</div>
+<div class="section" id="setup-procedure">
+<h2>Setup Procedure<a class="headerlink" href="#setup-procedure" title="Permalink to this headline">¶</a></h2>
+<p>pySIML is distributed as a source tarball using a mostly-standard Python distutils-based
+setup procedure. After untarring the package, most people should be able to run:</p>
+<div class="highlight-python"><pre>python setup.py build
+sudo python setup.py install</pre>
+</div>
+<p>In some cases, the setup script will not be able to detect one or more settings properly,
+in which case, the configure option can be used:</p>
+<div class="highlight-python"><pre>python setup.py configure &lt;options&gt;</pre>
+</div>
+<p>The following options are available:</p>
+<blockquote>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">--enable-openmp</span></tt>: Force pySIML to be built with OpenMP support.</li>
+<li><tt class="docutils literal"><span class="pre">--disable-openmp</span></tt>: Force pySIML to be built without OpenMP support.</li>
+<li><tt class="docutils literal"><span class="pre">--numpy-include=&lt;dir&gt;</span></tt>: Indicates that the C headers for numpy can be found
+in &lt;dir&gt;. Note that if, for example, <tt class="docutils literal"><span class="pre">arrayobject.h</span></tt> is in <tt class="docutils literal"><span class="pre">/usr/include/python2.5/numpy/arrayobject.h</span></tt>,
+&lt;dir&gt; should be specified as <tt class="docutils literal"><span class="pre">/usr/include/python2.5</span></tt>, NOT <tt class="docutils literal"><span class="pre">/usr/include/python2.5/numpy</span></tt>.</li>
+<li><tt class="docutils literal"><span class="pre">--python-include=&lt;dir&gt;</span></tt>: Indicates that the C headers for Python (e.g., <tt class="docutils literal"><span class="pre">Python.h</span></tt>)
+can be found in &lt;dir&gt;.</li>
+</ul>
+</blockquote>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">Installing pySIML</a><ul>
+<li><a class="reference external" href="#prerequisites">Prerequisites</a></li>
+<li><a class="reference external" href="#setup-procedure">Setup Procedure</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="intro.html"
+                                  title="previous chapter">Introduction to pySIML</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="concepts.html"
+                                  title="next chapter">pySIML Concepts</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="_sources/setup.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="concepts.html" title="pySIML Concepts"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="intro.html" title="Introduction to pySIML"
+             >previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2010, Stanford University.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

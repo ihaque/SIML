@@ -1,0 +1,15 @@
+.. _References:
+
+References
+==========
+
+.. [Grant06] Grant JA, Haigh JA, Pickup BT, Nicholls A, and Sayle RA. Lingos,
+             Finite State Machines, and Fast Similarity Searching.
+             Journal of Chemical Information and Modeling, 2006, 46(5), 1912-1918.
+             `DOI:10.1021/ci6002152 <http://dx.doi.org/10.1021/ci6002152>`_
+
+.. [Vidal05] Vidal D, Thormann M, Pons M. LINGO, an Efficient Holographic Text Based
+             Method to Calculate Biophysical Properties and Intermolecular Similarities.
+             Journal of Chemical Information and Modeling, 2005, 45(2), 386-393.
+             `DOI:10.1021/ci0496797 <http://dx.doi.org/10.1021/ci0496797>`_
+

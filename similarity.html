@@ -1,0 +1,583 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Similarity calculations with pySIML &mdash; pySIML v1.5 documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.5',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pySIML v1.5 documentation" href="index.html" />
+    <link rel="next" title="References" href="references.html" />
+    <link rel="prev" title="Preprocessing SMILES in pySIML" href="preprocessing.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             accesskey="M">modules</a> |</li>
+        <li class="right" >
+          <a href="references.html" title="References"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="preprocessing.html" title="Preprocessing SMILES in pySIML"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="similarity-calculations-with-pysiml">
+<span id="similarity"></span><h1>Similarity calculations with pySIML<a class="headerlink" href="#similarity-calculations-with-pysiml" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="generic-api-for-computing-lingos-with-pysiml">
+<h2>Generic API for computing LINGOs with pySIML<a class="headerlink" href="#generic-api-for-computing-lingos-with-pysiml" title="Permalink to this headline">¶</a></h2>
+<p>Both of the currently supported methods for LINGO computations with pySIML
+share the same general data flow and methods, to make it easy to switch
+between CPUs and GPUs as needed. The overall structure of a Tanimoto computation
+with pySIML is as follows:</p>
+<blockquote>
+<ul class="simple">
+<li>Read SMILES (from file, database, generator, etc)</li>
+<li>Preprocess SMILES for reference and query sets (see section
+<a class="reference external" href="preprocessing.html#preprocessing"><em>Preprocessing SMILES in pySIML</em></a>) into a pair of &#8216;SMILES sets&#8217;, each consisting of a
+Lingo matrix, count matrix, length vector, and magnitude vector.</li>
+<li>Create a LINGO comparator object (a <a class="reference internal" href="#cpulingo"><em>CPULingo</em></a>,
+<a class="reference internal" href="#gpulingo"><em>GPULingo</em></a>, or <a class="reference internal" href="#ocllingo"><em>OCLLingo</em></a> object)</li>
+<li>Initialize the comparator with the reference and query SMILES sets using
+the <tt class="docutils literal"><span class="pre">set_refsmiles</span></tt> and <tt class="docutils literal"><span class="pre">set_qsmiles</span></tt> functions.</li>
+<li>Request a single row from the Tanimoto matrix using the
+<tt class="docutils literal"><span class="pre">getTanimotoRow</span></tt> or <tt class="docutils literal"><span class="pre">getTanimotoRow_async</span></tt> methods, or a contiguous
+range of rows using <tt class="docutils literal"><span class="pre">getMultipleRows</span></tt> or <tt class="docutils literal"><span class="pre">getMultipleRows_async</span></tt>.</li>
+</ul>
+</blockquote>
+</div>
+<div class="section" id="example-of-computing-similarities-with-pysiml">
+<h2>Example of computing similarities with pySIML<a class="headerlink" href="#example-of-computing-similarities-with-pysiml" title="Permalink to this headline">¶</a></h2>
+<p>The following is a simple demonstration of how to calculate a full N x N similarity
+matrix on a set of compounds read in from a file. Note that it lacks niceties such
+as error-checking; a more detailed example code is present in the examples directory:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">from</span> <span class="nn">pysiml.compiler</span> <span class="kn">import</span> <span class="n">cSMILEStoMatrices</span>
+<span class="kn">from</span> <span class="nn">pysiml.CPULingo</span> <span class="kn">import</span> <span class="n">CPULingo</span>
+
+<span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="s">&quot;r&quot;</span><span class="p">)</span>
+<span class="n">smiles</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+<span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="n">numMols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">smiles</span><span class="p">)</span>
+
+<span class="c"># We use cSMILEStoMatrices because it is almost 100x as fast as</span>
+<span class="c"># SMILEStoMatrices, and more correct to boot.</span>
+<span class="c">#</span>
+<span class="c"># The SMILES compiler also returns the molecule name associated</span>
+<span class="c"># with each row of the output matrices</span>
+<span class="p">(</span><span class="n">lingos</span><span class="p">,</span><span class="n">counts</span><span class="p">,</span><span class="n">lengths</span><span class="p">,</span><span class="n">mags</span><span class="p">,</span><span class="n">names</span><span class="p">)</span> <span class="o">=</span> <span class="n">cSMILEStoMatrices</span><span class="p">(</span><span class="n">smiles</span><span class="p">)</span>
+
+<span class="c"># Construct a similarity object. This could also be a GPULingo</span>
+<span class="n">comparator</span> <span class="o">=</span> <span class="n">CPULingo</span><span class="p">()</span>
+
+<span class="c"># Initialize the comparator with our SMILES sets. Since this</span>
+<span class="c"># computation is a self-similarity matrix, the reference and</span>
+<span class="c"># query sets are the same</span>
+<span class="n">comparator</span><span class="o">.</span><span class="n">set_refsmiles</span><span class="p">(</span><span class="n">lingos</span><span class="p">,</span><span class="n">counts</span><span class="p">,</span><span class="n">lengths</span><span class="p">,</span><span class="n">mags</span><span class="p">)</span>
+<span class="n">comparator</span><span class="o">.</span><span class="n">set_qsmiles</span><span class="p">(</span><span class="n">lingos</span><span class="p">,</span><span class="n">counts</span><span class="p">,</span><span class="n">lengths</span><span class="p">,</span><span class="n">mags</span><span class="p">)</span>
+
+<span class="c"># Create an empty storage place to put the result</span>
+<span class="n">similarityMatrix</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">numMols</span><span class="p">,</span><span class="n">numMols</span><span class="p">))</span>
+
+<span class="c"># CPULingo-specific: see if we can run the computation in parallel</span>
+<span class="n">numProcs</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="k">if</span> <span class="n">comparator</span><span class="o">.</span><span class="n">supportsParallel</span><span class="p">():</span>
+    <span class="c"># If we can do a row-parallel computation (OpenMP supported), choose the</span>
+    <span class="c"># number of processors here</span>
+    <span class="n">numProcs</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">similarityMatrix</span><span class="p">[:,:]</span> <span class="o">=</span> <span class="n">comparator</span><span class="o">.</span><span class="n">getMultipleRows</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">numMols</span><span class="p">,</span><span class="n">nprocs</span><span class="o">=</span><span class="n">numProcs</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="n">similarityMatrix</span>
+</pre></div>
+</div>
+<p>The following sections explain details of the CPULingo and GPULingo APIs and
+differences in their respective behavior.</p>
+</div>
+<div class="section" id="pysiml-cpulingo-computing-lingo-similarities-on-a-cpu">
+<span id="cpulingo"></span><h2>pysiml.CPULingo - Computing LINGO similarities on a CPU<a class="headerlink" href="#pysiml-cpulingo-computing-lingo-similarities-on-a-cpu" title="Permalink to this headline">¶</a></h2>
+<p>This module exposes the API for computing LINGO similarities on a CPU.
+Calculations of multiple rows can be parallelized across multiple CPUs,
+if the library has been built with OpenMP support. There is currently no
+support for parallelizing the computation of a single row across multiple
+CPUs.</p>
+<p>The CPULingo object is the interface to compute LINGOs on a CPU. Creating
+multiple CPULingo objects will not parallelize computations on each across
+multiple CPUs (as with GPULingo); the only parallelism currently exposed
+is across rows, using OpenMP.</p>
+<p>For interface consistency, CPULingo exposes asynchronous operation methods
+(<a title="pysiml.CPULingo.CPULingo.getTanimotoRow_async" class="reference internal" href="#pysiml.CPULingo.CPULingo.getTanimotoRow_async"><tt class="xref docutils literal"><span class="pre">getTanimotoRow_async()</span></tt></a> and
+<a title="pysiml.CPULingo.CPULingo.getMultipleRows_async" class="reference internal" href="#pysiml.CPULingo.CPULingo.getMultipleRows_async"><tt class="xref docutils literal"><span class="pre">getMultipleRows_async()</span></tt></a>); however, these
+methods as currently implemented are not actually asynchronous operations.</p>
+<div class="section" id="module-pysiml.CPULingo">
+<h3>CPULingo object documentation<a class="headerlink" href="#module-pysiml.CPULingo" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="pysiml.CPULingo.CPULingo">
+<em class="property">class </em><tt class="descclassname">pysiml.CPULingo.</tt><tt class="descname">CPULingo</tt><a class="headerlink" href="#pysiml.CPULingo.CPULingo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Object to handle computation of LINGO similarities on the CPU</p>
+<dl class="method">
+<dt id="pysiml.CPULingo.CPULingo.asyncOperationsDone">
+<tt class="descname">asyncOperationsDone</tt><big>(</big><big>)</big><a class="headerlink" href="#pysiml.CPULingo.CPULingo.asyncOperationsDone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return True if all asynchronous operations on this object have completed.</p>
+<p>In current implementation, always returns True.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.CPULingo.CPULingo.getMultipleRows">
+<tt class="descname">getMultipleRows</tt><big>(</big><em>rowbase</em>, <em>rowlimit</em>, <em>nprocs=1</em><big>)</big><a class="headerlink" href="#pysiml.CPULingo.CPULingo.getMultipleRows" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes multiple Tanimoto rows <em>rowbase:rowlimit</em> corresponding to comparing every SMILES string
+in the query set with the reference SMILES strings having index <em>row</em>, <em>row+1</em>, ..., <em>rowlimit-1</em> in the reference set,
+and returns this block of rows.</p>
+<p>If pySIML has been built with OpenMP enabled, <em>nprocs</em> may be set higher than 1 to parallelize computations
+over multiple CPUs (each CPU will handle a disjoint set of rows). If called with <em>nprocs</em> larger than 1 on a
+non-OpenMP build of pySIML, print a warning to stderr and compute with one CPU.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.CPULingo.CPULingo.getMultipleRows_async">
+<tt class="descname">getMultipleRows_async</tt><big>(</big><em>rowbase</em>, <em>rowlimit</em>, <em>nprocs=1</em><big>)</big><a class="headerlink" href="#pysiml.CPULingo.CPULingo.getMultipleRows_async" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes multiple Tanimoto rows <em>rowbase:rowlimit</em> corresponding to comparing every SMILES string
+in the query set with the reference SMILES strings having index <em>row</em>, <em>row+1</em>, ..., <em>rowlimit-1</em> in the reference set,
+and stores this block of rows internally as the last asynchronous result value.</p>
+<p>If pySIML has been built with OpenMP enabled, <em>nprocs</em> may be set higher than 1 to parallelize computations
+over multiple CPUs (each CPU will handle a disjoint set of rows). If called with <em>nprocs</em> larger than 1 on a
+non-OpenMP build of pySIML, print a warning to stderr and compute with one CPU.</p>
+<p>To retrieve the result block, call <a title="pysiml.CPULingo.CPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.CPULingo.CPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a>.</p>
+<p>Note that this function is actually synchronous, due to the limitations of running on the CPU;
+it will not return until the block has been completely calculated.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.CPULingo.CPULingo.getTanimotoRow">
+<tt class="descname">getTanimotoRow</tt><big>(</big><em>row</em><big>)</big><a class="headerlink" href="#pysiml.CPULingo.CPULingo.getTanimotoRow" title="Permalink to this definition">¶</a></dt>
+<dd>Returns the single Tanimoto row <em>row</em> corresponding to comparing every SMILES string
+in the query set with the single reference SMILES string having index <em>row</em> in the reference set.</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.CPULingo.CPULingo.getTanimotoRow_async">
+<tt class="descname">getTanimotoRow_async</tt><big>(</big><em>row</em><big>)</big><a class="headerlink" href="#pysiml.CPULingo.CPULingo.getTanimotoRow_async" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the single Tanimoto row <em>row</em> corresponding to comparing every SMILES string
+in the query set with the single reference SMILES string having index <em>row</em> in the reference set,
+and stores this row internally as the last asynchronous result value.</p>
+<p>To retrieve the result row, call <a title="pysiml.CPULingo.CPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.CPULingo.CPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a>.</p>
+<p>Note that this function is actually synchronous, due to the limitations of running on the CPU;
+it will not return until the row has been completely calculated.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.CPULingo.CPULingo.retrieveAsyncResult">
+<tt class="descname">retrieveAsyncResult</tt><big>(</big><big>)</big><a class="headerlink" href="#pysiml.CPULingo.CPULingo.retrieveAsyncResult" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns result from last asynchronous computation (<a title="pysiml.CPULingo.CPULingo.getTanimotoRow_async" class="reference internal" href="#pysiml.CPULingo.CPULingo.getTanimotoRow_async"><tt class="xref docutils literal"><span class="pre">getTanimotoRow_async()</span></tt></a> or <a title="pysiml.CPULingo.CPULingo.getMultipleRows_async" class="reference internal" href="#pysiml.CPULingo.CPULingo.getMultipleRows_async"><tt class="xref docutils literal"><span class="pre">getMultipleRows_async()</span></tt></a>).</p>
+<p>Note that this result is only guaranteed to be valid if no operations have been run on this CPULingo object since the
+asynchronous call, except for <a title="pysiml.CPULingo.CPULingo.asyncOperationsDone" class="reference internal" href="#pysiml.CPULingo.CPULingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a> and <a title="pysiml.CPULingo.CPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.CPULingo.CPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a>.</p>
+<p>If no asynchronous operations have been invoked on this object, result is undefined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.CPULingo.CPULingo.set_qsmiles">
+<tt class="descname">set_qsmiles</tt><big>(</big><em>qsmilesmat</em>, <em>qcountsmat</em>, <em>querylengths</em>, <em>querymags=None</em><big>)</big><a class="headerlink" href="#pysiml.CPULingo.CPULingo.set_qsmiles" title="Permalink to this definition">¶</a></dt>
+<dd>Sets the query SMILES set to use Lingo matrix <em>qsmilesmat</em>, count matrix <em>qcountsmat</em>,
+and length vector <em>querylengths</em>. If <em>querymags</em> is provided, it will be used as the magnitude
+vector; else, the magnitude vector will be computed from the count matrix.</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.CPULingo.CPULingo.set_refsmiles">
+<tt class="descname">set_refsmiles</tt><big>(</big><em>refsmilesmat</em>, <em>refcountsmat</em>, <em>reflengths</em>, <em>refmags=None</em><big>)</big><a class="headerlink" href="#pysiml.CPULingo.CPULingo.set_refsmiles" title="Permalink to this definition">¶</a></dt>
+<dd>Sets the reference SMILES set to use Lingo matrix <em>refsmilesmat</em>, count matrix <em>refcountsmat</em>,
+and length vector <em>reflengths</em>. If <em>refmags</em> is provided, it will be used as the magnitude
+vector; else, the magnitude vector will be computed from the count matrix.</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.CPULingo.CPULingo.supportsParallel">
+<tt class="descname">supportsParallel</tt><big>(</big><big>)</big><a class="headerlink" href="#pysiml.CPULingo.CPULingo.supportsParallel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return True if this installation of pySIML was built with OpenMP support for parallel calculations.</p>
+<p>Note that even if this function returns False, the <a title="pysiml.CPULingo.CPULingo.getMultipleRows" class="reference internal" href="#pysiml.CPULingo.CPULingo.getMultipleRows"><tt class="xref docutils literal"><span class="pre">getMultipleRows()</span></tt></a> and <a title="pysiml.CPULingo.CPULingo.getMultipleRows_async" class="reference internal" href="#pysiml.CPULingo.CPULingo.getMultipleRows_async"><tt class="xref docutils literal"><span class="pre">getMultipleRows_async()</span></tt></a>
+methods can still be called with nprocs &gt; 1, but only one processor will actually be used</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="pysiml-gpulingo-computing-lingo-similarities-on-a-cuda-capable-gpu">
+<span id="gpulingo"></span><h2>pysiml.GPULingo - Computing LINGO similarities on a CUDA-capable GPU<a class="headerlink" href="#pysiml-gpulingo-computing-lingo-similarities-on-a-cuda-capable-gpu" title="Permalink to this headline">¶</a></h2>
+<p>This module exposes the API for computing LINGO similarities on a CUDA-capable GPU.
+It uses the pycuda library to interface with the GPU; in particular, due to bugs
+related to context management in pycuda 0.93 and before, pycuda 0.94 or greater is
+required.</p>
+<p>The GPULingo object is the interface to compute LINGOs on a single GPU. To do
+similarity calculations on multiple GPUs, create multiple GPULingo objects,
+passing a different CUDA device ID to each one&#8217;s constructor:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">gpu0</span> <span class="o">=</span> <span class="n">pysiml</span><span class="o">.</span><span class="n">GPULingo</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">gpu1</span> <span class="o">=</span> <span class="n">pysiml</span><span class="o">.</span><span class="n">GPULingo</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>By using the asynchronous operations on each object (<a title="pysiml.GPULingo.GPULingo.getTanimotoRow_async" class="reference internal" href="#pysiml.GPULingo.GPULingo.getTanimotoRow_async"><tt class="xref docutils literal"><span class="pre">getTanimotoRow_async()</span></tt></a>
+and <a title="pysiml.GPULingo.GPULingo.getMultipleRows_async" class="reference internal" href="#pysiml.GPULingo.GPULingo.getMultipleRows_async"><tt class="xref docutils literal"><span class="pre">getMultipleRows_async()</span></tt></a>), similarity calculations can
+be carried out simultaneously on multiple GPUs using only one host thread:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># gpu0 and gpu1 have been initialized with reference and query SMILES sets</span>
+
+<span class="c"># Carry out simultaneous computation of rows 0 to 10 of each set on both GPUs</span>
+<span class="n">gpu0</span><span class="o">.</span><span class="n">getMultipleRows_async</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">gpu1</span><span class="o">.</span><span class="n">getMultipleRows_async</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="c"># The busy waits could be replaced by a sleep, or any other work</span>
+<span class="k">while</span> <span class="ow">not</span> <span class="n">gpu0</span><span class="o">.</span><span class="n">asyncOperationsDone</span><span class="p">():</span>
+    <span class="k">pass</span>
+<span class="n">gpu0result</span> <span class="o">=</span> <span class="n">gpu0</span><span class="o">.</span><span class="n">retrieveAsyncResult</span><span class="p">()</span>
+
+<span class="k">while</span> <span class="ow">not</span> <span class="n">gpu1</span><span class="o">.</span><span class="n">asyncOperationsDone</span><span class="p">():</span>
+    <span class="k">pass</span>
+<span class="n">gpu1result</span> <span class="o">=</span> <span class="n">gpu1</span><span class="o">.</span><span class="n">retrieveAsyncResult</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>After an asynchronous computation has been requested on a GPULingo object, check
+<a title="pysiml.GPULingo.GPULingo.asyncOperationsDone" class="reference internal" href="#pysiml.GPULingo.GPULingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a> to see when the job is complete.
+Once the job is done, <a title="pysiml.GPULingo.GPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.GPULingo.GPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a> can be
+called to retrieve the result. Note that the retrieved result is guaranteed to be valid
+only if no methods were called on the GPULingo object after the asynchronous request,
+except for <a title="pysiml.GPULingo.GPULingo.asyncOperationsDone" class="reference internal" href="#pysiml.GPULingo.GPULingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a> and
+<a title="pysiml.GPULingo.GPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.GPULingo.GPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a>.</p>
+<div class="section" id="module-pysiml.GPULingo">
+<h3>GPULingo object documentation<a class="headerlink" href="#module-pysiml.GPULingo" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="pysiml.GPULingo.GPULingo">
+<em class="property">class </em><tt class="descclassname">pysiml.GPULingo.</tt><tt class="descname">GPULingo</tt><big>(</big><em>deviceID=0</em><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Object to handle computation of LINGO similarities on GPU with CUDA device ID <em>deviceid</em></p>
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.asyncOperationsDone">
+<tt class="descname">asyncOperationsDone</tt><big>(</big><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.asyncOperationsDone" title="Permalink to this definition">¶</a></dt>
+<dd>Return True if all asynchronous operations on this object have completed.</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.getMultipleRows">
+<tt class="descname">getMultipleRows</tt><big>(</big><em>rowbase</em>, <em>rowlimit</em><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.getMultipleRows" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes multiple Tanimoto rows <em>rowbase:rowlimit</em> corresponding to comparing every SMILES string
+in the query set with the reference SMILES strings having index <em>row</em>, <em>row+1</em>, ..., <em>rowlimit-1</em> in
+the reference set, and returns this block of rows.</p>
+<p>This method is synchronous (it will not return until the block has been completely computed).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.getMultipleRows_async">
+<tt class="descname">getMultipleRows_async</tt><big>(</big><em>rowbase</em>, <em>rowlimit</em><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.getMultipleRows_async" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes multiple Tanimoto rows <em>rowbase:rowlimit</em> corresponding to comparing every SMILES string
+in the query set with the reference SMILES strings having index <em>row</em>, <em>row+1</em>, ..., <em>rowlimit-1</em> in the reference set,
+and stores this block as the most recent asynchronous result.</p>
+<p>This method is asynchronous (it will return before the block has been completely computed). After
+calling this method, check <a title="pysiml.GPULingo.GPULingo.asyncOperationsDone" class="reference internal" href="#pysiml.GPULingo.GPULingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a>; once that method returns True, the result
+may be retrieved by calling <a title="pysiml.GPULingo.GPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.GPULingo.GPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.getTanimotoRow">
+<tt class="descname">getTanimotoRow</tt><big>(</big><em>row</em><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.getTanimotoRow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the single Tanimoto row <em>row</em> corresponding to comparing every SMILES string
+in the query set with the single reference SMILES string having index <em>row</em> in the reference set.</p>
+<p>This method is synchronous (it will not return until the entire row has been computed and brought back from
+the GPU).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.getTanimotoRow_async">
+<tt class="descname">getTanimotoRow_async</tt><big>(</big><em>row</em><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.getTanimotoRow_async" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the single Tanimoto row <em>row</em> corresponding to comparing every SMILES string
+in the query set with the single reference SMILES string having index <em>row</em> in the reference set, and store it
+as the most recent asynchronous result.</p>
+<p>This method is asynchronous (it will return before the row has been completely computed). After
+calling this method, check <a title="pysiml.GPULingo.GPULingo.asyncOperationsDone" class="reference internal" href="#pysiml.GPULingo.GPULingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a>; once that method returns True, the result
+may be retrieved by calling <a title="pysiml.GPULingo.GPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.GPULingo.GPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.getMultipleHistogrammedRows">
+<tt class="descname">getMultipleHistogrammedRows</tt><big>(</big><em>rowbase</em>, <em>rowlimit</em><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.getMultipleHistogrammedRows" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes multiple Tanimoto rows <em>rowbase:rowlimit</em> corresponding to comparing every SMILES string
+in the query set with the reference SMILES strings having index <em>row</em>, <em>row+1</em>, ..., <em>rowlimit-1</em> in
+the reference set. Histograms each row into its own histogram of 101 bins with boundaries 0, 0.01, 
+0.02, ... , 0.99, 1.0, 1.01. Returns this block of row-wise histograms.</p>
+<p>This method is synchronous (it will not return until the histograms have been completely computed).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.getMultipleHistogrammedRows_async">
+<tt class="descname">getMultipleHistogrammedRows_async</tt><big>(</big><em>rowbase</em>, <em>rowlimit</em><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.getMultipleHistogrammedRows_async" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes multiple Tanimoto rows <em>rowbase:rowlimit</em> corresponding to comparing every SMILES string
+in the query set with the reference SMILES strings having index <em>row</em>, <em>row+1</em>, ..., <em>rowlimit-1</em> in
+the reference set. Histograms each row into its own histogram of 101 bins with boundaries 0, 0.01, 
+0.02, ... , 0.99, 1.0, 1.01. Returns this block of row-wise histograms.</p>
+<p>This method is asynchronous (it will return before the block has been completely computed). After
+calling this method, check <a title="pysiml.GPULingo.GPULingo.asyncOperationsDone" class="reference internal" href="#pysiml.GPULingo.GPULingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a>; once that method returns True, the result
+may be retrieved by calling <a title="pysiml.GPULingo.GPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.GPULingo.GPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.getNeighbors">
+<tt class="descname">getNeighbors</tt><big>(</big><em>rowbase</em>, <em>rowlimit</em>, <em>lowerbound</em>, <em>upperbound=1.1</em>, <em>maxneighbors=None</em><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.getNeighbors" title="Permalink to this definition">¶</a></dt>
+<dd><p>For each reference SMILES string with index in <em>rowbase:rowlimit</em> (i.e., strings with
+index <em>row</em>, <em>row+1</em>, ... ,*rowlimit-1*, finds all SMILES in the query set that have
+LINGO similarity &gt;= <em>lowerbound</em> and &lt; <em>upperbound</em> (&#8220;neighbors&#8221;), up to a maximum of
+<em>maxneighbors</em> (by default, size of query set).</p>
+<p>Result is a tuple of (matrix,vector). The vector contains, for each reference string in
+<em>rowbase:rowlimit</em>, the number of neighbors found. The matrix is of size (rowlimit-rowbase,
+maxNeighborsFound), where maxNeighborsFound is the maximum value in the returned vector.
+Each row of the matrix (corresponding to one reference SMILES string) has as its elements
+the query indices of neighbors. In row i, only the first vector[i] elements are valid (that 
+is, the values elements of the matrix beyond the number of neighbors found for a given row 
+are undefined).</p>
+<p>This method is synchronous (it will not return until the neighbors have been completely
+computed. Returns a tuple of (neighborMatrix,neighborCountVector).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.getNeighbors_async">
+<tt class="descname">getNeighbors_async</tt><big>(</big><em>rowbase</em>, <em>rowlimit</em>, <em>lowerbound</em>, <em>upperbound=1.1</em>, <em>maxneighbors=None</em><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.getNeighbors_async" title="Permalink to this definition">¶</a></dt>
+<dd><p>For each reference SMILES string with index in <em>rowbase:rowlimit</em> (i.e., strings with
+index <em>row</em>, <em>row+1</em>, ... ,*rowlimit-1*, finds all SMILES in the query set that have
+LINGO similarity &gt;= <em>lowerbound</em> and &lt; <em>upperbound</em> (&#8220;neighbors&#8221;), up to a maximum of
+<em>maxneighbors</em> (by default, size of query set).</p>
+<p>Result is a tuple of (matrix,vector). The vector contains, for each reference string in
+<em>rowbase:rowlimit</em>, the number of neighbors found. The matrix is of size (rowlimit-rowbase,
+maxNeighborsFound), where maxNeighborsFound is the maximum value in the returned vector.
+Each row of the matrix (corresponding to one reference SMILES string) has as its elements
+the query indices of neighbors. In row i, only the first vector[i] elements are valid (that 
+is, the values elements of the matrix beyond the number of neighbors found for a given row 
+are undefined).</p>
+<p>This method is asynchronous (it will return before the block has been completely computed). After
+calling this method, check <a title="pysiml.GPULingo.GPULingo.asyncOperationsDone" class="reference internal" href="#pysiml.GPULingo.GPULingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a>; once that method returns True, the result
+pair may be retrieved by calling <a title="pysiml.GPULingo.GPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.GPULingo.GPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.retrieveAsyncResult">
+<tt class="descname">retrieveAsyncResult</tt><big>(</big><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.retrieveAsyncResult" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns result from last asynchronous computation (<a title="pysiml.GPULingo.GPULingo.getTanimotoRow_async" class="reference internal" href="#pysiml.GPULingo.GPULingo.getTanimotoRow_async"><tt class="xref docutils literal"><span class="pre">getTanimotoRow_async()</span></tt></a>,
+<a title="pysiml.GPULingo.GPULingo.getMultipleRows_async" class="reference internal" href="#pysiml.GPULingo.GPULingo.getMultipleRows_async"><tt class="xref docutils literal"><span class="pre">getMultipleRows_async()</span></tt></a>, <a title="pysiml.GPULingo.GPULingo.getMultipleHistogrammedRows_async" class="reference internal" href="#pysiml.GPULingo.GPULingo.getMultipleHistogrammedRows_async"><tt class="xref docutils literal"><span class="pre">getMultipleHistogrammedRows_async()</span></tt></a>, or <a title="pysiml.GPULingo.GPULingo.getNeighbors_async" class="reference internal" href="#pysiml.GPULingo.GPULingo.getNeighbors_async"><tt class="xref docutils literal"><span class="pre">getNeighbors_async()</span></tt></a>).</p>
+<p>Note that this result is only guaranteed to be valid if no operations have been run on this object since the
+asynchronous call, except for <a title="pysiml.GPULingo.GPULingo.asyncOperationsDone" class="reference internal" href="#pysiml.GPULingo.GPULingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a> and <a title="pysiml.GPULingo.GPULingo.retrieveAsyncResult" class="reference internal" href="#pysiml.GPULingo.GPULingo.retrieveAsyncResult"><tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt></a>.</p>
+<p>If no asynchronous operations have been invoked on this object, result is undefined. If an asynchronous
+operation is still pending, this method will block until completion.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.set_qsmiles">
+<tt class="descname">set_qsmiles</tt><big>(</big><em>qsmilesmat</em>, <em>qcountsmat</em>, <em>qlengths</em><span class="optional">[</span>, <em>qmags</em><span class="optional">]</span><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.set_qsmiles" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the reference SMILES set to use Lingo matrix <em>qsmilesmat</em>, count matrix <em>qcountsmat</em>,
+and length vector <em>querylengths</em>. If <em>querymags</em> is provided, it will be used as the magnitude
+vector; else, the magnitude vector will be computed (on the GPU) from the count matrix.</p>
+<p>Because of hardware limitations, the query matrices (<em>qsmilesmat</em> and <em>qcountsmat</em>) must have
+no more than 65,536 rows (molecules) and 32,768 columns (Lingos). Larger computations must be performed in tiles.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.GPULingo.GPULingo.set_refsmiles">
+<tt class="descname">set_refsmiles</tt><big>(</big><em>refsmilesmat</em>, <em>refcountsmat</em>, <em>reflengths</em><span class="optional">[</span>, <em>refmags</em><span class="optional">]</span><big>)</big><a class="headerlink" href="#pysiml.GPULingo.GPULingo.set_refsmiles" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the reference SMILES set to use Lingo matrix <em>refsmilesmat</em>, count matrix <em>refcountsmat</em>,
+and length vector <em>reflengths</em>. If <em>refmags</em> is provided, it will be used as the magnitude
+vector; else, the magnitude vector will be computed (on the GPU) from the count matrix.</p>
+<p>Because of hardware limitations, the reference matrices (<em>refsmilesmat</em> and <em>refcountsmat</em>) must have
+no more than 32,768 rows (molecules) and 65,536 columns (Lingos). Larger computations must be performed in tiles.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="pysiml-ocllingo-computing-lingo-similarities-on-an-opencl-capable-gpu-or-cpu">
+<span id="ocllingo"></span><h2>pysiml.OCLLingo - Computing LINGO similarities on an OpenCL-capable GPU or CPU<a class="headerlink" href="#pysiml-ocllingo-computing-lingo-similarities-on-an-opencl-capable-gpu-or-cpu" title="Permalink to this headline">¶</a></h2>
+<p><strong>Very Beta - only getMultipleRows currently supported</strong></p>
+<p>This module exposes the API for computing LINGO similarities on an OpenCL-capable
+GPU, CPU, or other accelerator device. It uses the pyopencl library to interface
+with OpenCL.</p>
+<p>The OCLLingo object is the interface to compute LINGOs on a single OpenCL device.
+Multiple OCLLingo objects can be used (on the same device or multiple devices); in
+particular, similarity calculations may be parallelized across multiple GPUs by
+creating multiple OCLLingo objects, one per device. To build an OCLLingo object,
+an OpenCL device (obtained from an OpenCL Platform using pyopencl) must be passed
+to the constructor:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">pyopencl</span> <span class="kn">as</span> <span class="nn">cl</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">get_platforms</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="c"># Use first platform</span>
+<span class="n">dev0</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">get_devices</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">dev1</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">get_devices</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">gpu0</span> <span class="o">=</span> <span class="n">pysiml</span><span class="o">.</span><span class="n">OCLLingo</span><span class="p">(</span><span class="n">dev0</span><span class="p">)</span>
+<span class="n">gpu1</span> <span class="o">=</span> <span class="n">pysiml</span><span class="o">.</span><span class="n">OCLLingo</span><span class="p">(</span><span class="n">dev1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>By using the asynchronous operations on each object (<tt class="xref docutils literal"><span class="pre">getTanimotoRow_async()</span></tt>
+and <tt class="xref docutils literal"><span class="pre">getMultipleRows_async()</span></tt>), similarity calculations can
+be carried out simultaneously on multiple GPUs using only one host thread:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># gpu0 and gpu1 have been initialized with reference and query SMILES sets</span>
+
+<span class="c"># Carry out simultaneous computation of rows 0 to 10 of each set on both GPUs</span>
+<span class="n">gpu0</span><span class="o">.</span><span class="n">getMultipleRows_async</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">gpu1</span><span class="o">.</span><span class="n">getMultipleRows_async</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="c"># The busy waits could be replaced by a sleep, or any other work</span>
+<span class="k">while</span> <span class="ow">not</span> <span class="n">gpu0</span><span class="o">.</span><span class="n">asyncOperationsDone</span><span class="p">():</span>
+    <span class="k">pass</span>
+<span class="n">gpu0result</span> <span class="o">=</span> <span class="n">gpu0</span><span class="o">.</span><span class="n">retrieveAsyncResult</span><span class="p">()</span>
+
+<span class="k">while</span> <span class="ow">not</span> <span class="n">gpu1</span><span class="o">.</span><span class="n">asyncOperationsDone</span><span class="p">():</span>
+    <span class="k">pass</span>
+<span class="n">gpu1result</span> <span class="o">=</span> <span class="n">gpu1</span><span class="o">.</span><span class="n">retrieveAsyncResult</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>After an asynchronous computation has been requested on a OCLLingo object, check
+<a title="pysiml.OCLLingo.OCLLingo.asyncOperationsDone" class="reference internal" href="#pysiml.OCLLingo.OCLLingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a> to see when the job is complete.
+Once the job is done, <tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt> can be
+called to retrieve the result. Note that the retrieved result is guaranteed to be valid
+only if no methods were called on the OCLLingo object after the asynchronous request,
+except for <a title="pysiml.OCLLingo.OCLLingo.asyncOperationsDone" class="reference internal" href="#pysiml.OCLLingo.OCLLingo.asyncOperationsDone"><tt class="xref docutils literal"><span class="pre">asyncOperationsDone()</span></tt></a> and
+<tt class="xref docutils literal"><span class="pre">retrieveAsyncResult()</span></tt>.</p>
+<div class="section" id="module-pysiml.OCLLingo">
+<h3>OCLLingo object documentation<a class="headerlink" href="#module-pysiml.OCLLingo" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="pysiml.OCLLingo.OCLLingo">
+<em class="property">class </em><tt class="descclassname">pysiml.OCLLingo.</tt><tt class="descname">OCLLingo</tt><big>(</big><em>device</em><big>)</big><a class="headerlink" href="#pysiml.OCLLingo.OCLLingo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Object to handle computation of LINGO similarities on GPU with CUDA device ID <em>deviceid</em></p>
+<dl class="method">
+<dt id="pysiml.OCLLingo.OCLLingo.asyncOperationsDone">
+<tt class="descname">asyncOperationsDone</tt><big>(</big><big>)</big><a class="headerlink" href="#pysiml.OCLLingo.OCLLingo.asyncOperationsDone" title="Permalink to this definition">¶</a></dt>
+<dd>Return True if all asynchronous operations on this object have completed.</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.OCLLingo.OCLLingo.getMultipleRows">
+<tt class="descname">getMultipleRows</tt><big>(</big><em>rowbase</em>, <em>rowlimit</em><big>)</big><a class="headerlink" href="#pysiml.OCLLingo.OCLLingo.getMultipleRows" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes multiple Tanimoto rows <em>rowbase:rowlimit</em> corresponding to comparing every SMILES string
+in the query set with the reference SMILES strings having index <em>row</em>, <em>row+1</em>, ..., <em>rowlimit-1</em> in the reference set,
+and stores this block as the most recent asynchronous result.</p>
+<p>This method is synchronous (it will not return until the block has been completely computed).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.OCLLingo.OCLLingo.set_qsmiles">
+<tt class="descname">set_qsmiles</tt><big>(</big><em>qsmilesmat</em>, <em>qcountsmat</em>, <em>qlengths</em><span class="optional">[</span>, <em>qmags</em><span class="optional">]</span><big>)</big><a class="headerlink" href="#pysiml.OCLLingo.OCLLingo.set_qsmiles" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the reference SMILES set to use Lingo matrix <em>qsmilesmat</em>, count matrix <em>qcountsmat</em>,
+and length vector <em>querylengths</em>. If <em>querymags</em> is provided, it will be used as the magnitude
+vector; else, the magnitude vector will be computed (on the GPU) from the count matrix.</p>
+<p>Because of hardware limitations, the query matrices (<em>qsmilesmat</em> and <em>qcountsmat</em>) must have
+no more than 65,536 rows (molecules) and 32,768 columns (Lingos). Larger computations must be performed in tiles.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pysiml.OCLLingo.OCLLingo.set_refsmiles">
+<tt class="descname">set_refsmiles</tt><big>(</big><em>refsmilesmat</em>, <em>refcountsmat</em>, <em>reflengths</em><span class="optional">[</span>, <em>refmags</em><span class="optional">]</span><big>)</big><a class="headerlink" href="#pysiml.OCLLingo.OCLLingo.set_refsmiles" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the reference SMILES set to use Lingo matrix <em>refsmilesmat</em>, count matrix <em>refcountsmat</em>,
+and length vector <em>reflengths</em>. If <em>refmags</em> is provided, it will be used as the magnitude
+vector; else, the magnitude vector will be computed (on the GPU) from the count matrix.</p>
+<p>Because of hardware limitations, the reference matrices (<em>refsmilesmat</em> and <em>refcountsmat</em>) must have
+no more than 32,768 rows (molecules) and 65,536 columns (Lingos). Larger computations must be performed in tiles.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">Similarity calculations with pySIML</a><ul>
+<li><a class="reference external" href="#generic-api-for-computing-lingos-with-pysiml">Generic API for computing LINGOs with pySIML</a></li>
+<li><a class="reference external" href="#example-of-computing-similarities-with-pysiml">Example of computing similarities with pySIML</a></li>
+<li><a class="reference external" href="#pysiml-cpulingo-computing-lingo-similarities-on-a-cpu">pysiml.CPULingo - Computing LINGO similarities on a CPU</a><ul>
+<li><a class="reference external" href="#module-pysiml.CPULingo">CPULingo object documentation</a></li>
+</ul>
+</li>
+<li><a class="reference external" href="#pysiml-gpulingo-computing-lingo-similarities-on-a-cuda-capable-gpu">pysiml.GPULingo - Computing LINGO similarities on a CUDA-capable GPU</a><ul>
+<li><a class="reference external" href="#module-pysiml.GPULingo">GPULingo object documentation</a></li>
+</ul>
+</li>
+<li><a class="reference external" href="#pysiml-ocllingo-computing-lingo-similarities-on-an-opencl-capable-gpu-or-cpu">pysiml.OCLLingo - Computing LINGO similarities on an OpenCL-capable GPU or CPU</a><ul>
+<li><a class="reference external" href="#module-pysiml.OCLLingo">OCLLingo object documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="preprocessing.html"
+                                  title="previous chapter">Preprocessing SMILES in pySIML</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="references.html"
+                                  title="next chapter">References</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="_sources/similarity.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="references.html" title="References"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="preprocessing.html" title="Preprocessing SMILES in pySIML"
+             >previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2010, Stanford University.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Introduction to pySIML &mdash; pySIML v1.5 documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.5',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pySIML v1.5 documentation" href="index.html" />
+    <link rel="next" title="Installing pySIML" href="setup.html" />
+    <link rel="prev" title="Welcome to pySIML’s documentation!" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             accesskey="M">modules</a> |</li>
+        <li class="right" >
+          <a href="setup.html" title="Installing pySIML"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to pySIML’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="introduction-to-pysiml">
+<span id="intro"></span><h1>Introduction to pySIML<a class="headerlink" href="#introduction-to-pysiml" title="Permalink to this headline">¶</a></h1>
+<p>pySIML gives you easy access to SIML, an extremely fast method for computing
+LINGO chemical similarities <a class="reference external" href="references.html#vidal05">[Vidal05]</a>. There are existing implementations of
+LINGO, such as that included in OpenEye&#8217;s OEChem toolkit - so why bother with
+SIML?</p>
+<p><strong>Speed.</strong></p>
+<p>For several classes of important problems, SIML is significantly faster than
+existing implementations of LINGOs. In particular, for M x N similarity problems,
+in which one needs to compare every molecule in a set of size M against every other
+molecule in a set of size N (and M and N are reasonably large, on the order of
+hundreds), SIML on a single-core CPU is several times as fast as existing implementations
+of LINGO. SIML also supports computing LINGOs on a CUDA-capable GPU, which allows over
+eightyfold speedup relative to even fast CPUs.</p>
+<p>SIML and pySIML live at <a class="reference external" href="https://simtk.org/home/siml">https://simtk.org/home/siml</a>.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="index.html"
+                                  title="previous chapter">Welcome to pySIML&#8217;s documentation!</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="setup.html"
+                                  title="next chapter">Installing pySIML</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="_sources/intro.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="setup.html" title="Installing pySIML"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to pySIML’s documentation!"
+             >previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2010, Stanford University.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>
