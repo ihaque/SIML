@@ -1,6 +1,8 @@
 SIML: "Single-Instruction, Multiple LINGOs"
 ====
 
+Docs at https://ihaque.github.io/SIML/
+
 Version 1.5
 
 Imran S Haque
