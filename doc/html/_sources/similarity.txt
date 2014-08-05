@@ -1,0 +1,242 @@
+.. _Similarity:
+
+Similarity calculations with pySIML
+===================================
+
+--------------------------------------------
+Generic API for computing LINGOs with pySIML
+--------------------------------------------
+
+Both of the currently supported methods for LINGO computations with pySIML
+share the same general data flow and methods, to make it easy to switch
+between CPUs and GPUs as needed. The overall structure of a Tanimoto computation
+with pySIML is as follows:
+
+    * Read SMILES (from file, database, generator, etc)
+    * Preprocess SMILES for reference and query sets (see section
+      :ref:`Preprocessing`) into a pair of 'SMILES sets', each consisting of a
+      Lingo matrix, count matrix, length vector, and magnitude vector.
+    * Create a LINGO comparator object (a :ref:`CPULingo <CPULingo>`, 
+      :ref:`GPULingo <GPULingo>`, or :ref:`OCLLingo <OCLLingo>` object)
+    * Initialize the comparator with the reference and query SMILES sets using
+      the ``set_refsmiles`` and ``set_qsmiles`` functions.
+    * Request a single row from the Tanimoto matrix using the
+      ``getTanimotoRow`` or ``getTanimotoRow_async`` methods, or a contiguous
+      range of rows using ``getMultipleRows`` or ``getMultipleRows_async``.
+
+---------------------------------------------
+Example of computing similarities with pySIML
+---------------------------------------------
+
+The following is a simple demonstration of how to calculate a full N x N similarity
+matrix on a set of compounds read in from a file. Note that it lacks niceties such
+as error-checking; a more detailed example code is present in the examples directory::
+
+  import sys
+  import numpy
+  from pysiml.compiler import cSMILEStoMatrices
+  from pysiml.CPULingo import CPULingo
+
+  f = open(sys.argv[1],"r")
+  smiles = f.readlines()
+  f.close()
+
+  numMols = len(smiles)
+
+  # We use cSMILEStoMatrices because it is almost 100x as fast as
+  # SMILEStoMatrices, and more correct to boot.
+  #
+  # The SMILES compiler also returns the molecule name associated
+  # with each row of the output matrices
+  (lingos,counts,lengths,mags,names) = cSMILEStoMatrices(smiles)
+
+  # Construct a similarity object. This could also be a GPULingo
+  comparator = CPULingo()
+
+  # Initialize the comparator with our SMILES sets. Since this
+  # computation is a self-similarity matrix, the reference and
+  # query sets are the same
+  comparator.set_refsmiles(lingos,counts,lengths,mags)
+  comparator.set_qsmiles(lingos,counts,lengths,mags)
+
+  # Create an empty storage place to put the result
+  similarityMatrix = numpy.empty((numMols,numMols))
+
+  # CPULingo-specific: see if we can run the computation in parallel
+  numProcs = 1
+  if comparator.supportsParallel():
+      # If we can do a row-parallel computation (OpenMP supported), choose the
+      # number of processors here
+      numProcs = 4
+  similarityMatrix[:,:] = comparator.getMultipleRows(0,numMols,nprocs=numProcs)
+
+  print similarityMatrix
+
+The following sections explain details of the CPULingo and GPULingo APIs and
+differences in their respective behavior.
+
+.. _CPULingo:
+
+-------------------------------------------------------
+pysiml.CPULingo - Computing LINGO similarities on a CPU
+-------------------------------------------------------
+
+This module exposes the API for computing LINGO similarities on a CPU.
+Calculations of multiple rows can be parallelized across multiple CPUs,
+if the library has been built with OpenMP support. There is currently no
+support for parallelizing the computation of a single row across multiple
+CPUs.
+
+The CPULingo object is the interface to compute LINGOs on a CPU. Creating
+multiple CPULingo objects will not parallelize computations on each across
+multiple CPUs (as with GPULingo); the only parallelism currently exposed
+is across rows, using OpenMP.
+
+For interface consistency, CPULingo exposes asynchronous operation methods
+(:meth:`~pysiml.CPULingo.CPULingo.getTanimotoRow_async` and
+:meth:`~pysiml.CPULingo.CPULingo.getMultipleRows_async`); however, these
+methods as currently implemented are not actually asynchronous operations.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+CPULingo object documentation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. module:: pysiml.CPULingo
+.. autoclass:: CPULingo
+    :members:
+    :undoc-members:
+
+
+.. _GPULingo:
+
+--------------------------------------------------------------------
+pysiml.GPULingo - Computing LINGO similarities on a CUDA-capable GPU
+--------------------------------------------------------------------
+
+This module exposes the API for computing LINGO similarities on a CUDA-capable GPU.
+It uses the pycuda library to interface with the GPU; in particular, due to bugs
+related to context management in pycuda 0.93 and before, pycuda 0.94 or greater is
+required.
+
+The GPULingo object is the interface to compute LINGOs on a single GPU. To do
+similarity calculations on multiple GPUs, create multiple GPULingo objects,
+passing a different CUDA device ID to each one's constructor::
+
+    gpu0 = pysiml.GPULingo(0)
+    gpu1 = pysiml.GPULingo(1)
+
+By using the asynchronous operations on each object (:meth:`~pysiml.GPULingo.GPULingo.getTanimotoRow_async`
+and :meth:`~pysiml.GPULingo.GPULingo.getMultipleRows_async`), similarity calculations can
+be carried out simultaneously on multiple GPUs using only one host thread::
+
+    # gpu0 and gpu1 have been initialized with reference and query SMILES sets
+    
+    # Carry out simultaneous computation of rows 0 to 10 of each set on both GPUs
+    gpu0.getMultipleRows_async(0,10)
+    gpu1.getMultipleRows_async(0,10)
+
+    # The busy waits could be replaced by a sleep, or any other work
+    while not gpu0.asyncOperationsDone():
+        pass
+    gpu0result = gpu0.retrieveAsyncResult()
+
+    while not gpu1.asyncOperationsDone():
+        pass
+    gpu1result = gpu1.retrieveAsyncResult()
+
+After an asynchronous computation has been requested on a GPULingo object, check
+:meth:`~pysiml.GPULingo.GPULingo.asyncOperationsDone` to see when the job is complete.
+Once the job is done, :meth:`~pysiml.GPULingo.GPULingo.retrieveAsyncResult` can be
+called to retrieve the result. Note that the retrieved result is guaranteed to be valid
+only if no methods were called on the GPULingo object after the asynchronous request,
+except for :meth:`~pysiml.GPULingo.GPULingo.asyncOperationsDone` and
+:meth:`~pysiml.GPULingo.GPULingo.retrieveAsyncResult`.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+GPULingo object documentation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. module:: pysiml.GPULingo
+.. autoclass:: GPULingo
+ 
+  .. automethod:: GPULingo.asyncOperationsDone()
+  .. automethod:: GPULingo.getMultipleRows(rowbase,rowlimit)
+  .. automethod:: GPULingo.getMultipleRows_async(rowbase,rowlimit)
+  .. automethod:: GPULingo.getTanimotoRow(row)
+  .. automethod:: GPULingo.getTanimotoRow_async(row)
+  .. automethod:: GPULingo.getMultipleHistogrammedRows(rowbase,rowlimit)
+  .. automethod:: GPULingo.getMultipleHistogrammedRows_async(rowbase,rowlimit)
+  .. automethod:: GPULingo.getNeighbors(rowbase,rowlimit,lowerbound,upperbound=1.1,maxneighbors=None)
+  .. automethod:: GPULingo.getNeighbors_async(rowbase,rowlimit,lowerbound,upperbound=1.1,maxneighbors=None)
+  .. automethod:: GPULingo.retrieveAsyncResult()
+  .. automethod:: GPULingo.set_qsmiles(qsmilesmat,qcountsmat,qlengths[,qmags])
+  .. automethod:: GPULingo.set_refsmiles(refsmilesmat,refcountsmat,reflengths[,refmags])
+
+.. _OCLLingo:
+
+------------------------------------------------------------------------------
+pysiml.OCLLingo - Computing LINGO similarities on an OpenCL-capable GPU or CPU
+------------------------------------------------------------------------------
+
+**Very Beta - only getMultipleRows currently supported**
+
+This module exposes the API for computing LINGO similarities on an OpenCL-capable
+GPU, CPU, or other accelerator device. It uses the pyopencl library to interface 
+with OpenCL.
+
+The OCLLingo object is the interface to compute LINGOs on a single OpenCL device.
+Multiple OCLLingo objects can be used (on the same device or multiple devices); in
+particular, similarity calculations may be parallelized across multiple GPUs by
+creating multiple OCLLingo objects, one per device. To build an OCLLingo object,
+an OpenCL device (obtained from an OpenCL Platform using pyopencl) must be passed
+to the constructor::
+
+    import pyopencl as cl
+    platform = cl.get_platforms()[0] # Use first platform
+    dev0 = platform.get_devices()[0]
+    dev1 = platform.get_devices()[1]
+    gpu0 = pysiml.OCLLingo(dev0)
+    gpu1 = pysiml.OCLLingo(dev1)
+
+By using the asynchronous operations on each object (:meth:`~pysiml.OCLLingo.OCLLingo.getTanimotoRow_async`
+and :meth:`~pysiml.OCLLingo.OCLLingo.getMultipleRows_async`), similarity calculations can
+be carried out simultaneously on multiple GPUs using only one host thread::
+
+    # gpu0 and gpu1 have been initialized with reference and query SMILES sets
+    
+    # Carry out simultaneous computation of rows 0 to 10 of each set on both GPUs
+    gpu0.getMultipleRows_async(0,10)
+    gpu1.getMultipleRows_async(0,10)
+
+    # The busy waits could be replaced by a sleep, or any other work
+    while not gpu0.asyncOperationsDone():
+        pass
+    gpu0result = gpu0.retrieveAsyncResult()
+
+    while not gpu1.asyncOperationsDone():
+        pass
+    gpu1result = gpu1.retrieveAsyncResult()
+
+
+After an asynchronous computation has been requested on a OCLLingo object, check
+:meth:`~pysiml.OCLLingo.OCLLingo.asyncOperationsDone` to see when the job is complete.
+Once the job is done, :meth:`~pysiml.OCLLingo.OCLLingo.retrieveAsyncResult` can be
+called to retrieve the result. Note that the retrieved result is guaranteed to be valid
+only if no methods were called on the OCLLingo object after the asynchronous request,
+except for :meth:`~pysiml.OCLLingo.OCLLingo.asyncOperationsDone` and
+:meth:`~pysiml.OCLLingo.OCLLingo.retrieveAsyncResult`.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OCLLingo object documentation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. module:: pysiml.OCLLingo
+.. autoclass:: OCLLingo
+ 
+  .. automethod:: OCLLingo.asyncOperationsDone()
+  .. automethod:: OCLLingo.getMultipleRows(rowbase,rowlimit)
+  .. automethod:: OCLLingo.set_qsmiles(qsmilesmat,qcountsmat,qlengths[,qmags])
+  .. automethod:: OCLLingo.set_refsmiles(refsmilesmat,refcountsmat,reflengths[,refmags])
+
+
+

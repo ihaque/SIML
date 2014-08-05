@@ -1,0 +1,60 @@
+.. _Setup:
+
+Installing pySIML
+=================
+
+-------------
+Prerequisites
+-------------
+
+* pySIML requires a working Python installation, since it is a collection of Python
+  bindings. It has been successfully tested on Python 2.4 and 2.5 on both Linux and
+  Mac OS X. It also requires that the development header files for the Python
+  interpreter used be installed on the machine (e.g., on Ubuntu Linux, package
+  ``python-dev`` must be installed, not just ``python``).
+
+* The `NumPy <http://numpy.scipy.org>`_ package, and its headers, must also be
+  installed. pySIML makes extensive use of NumPy to store input and output data
+  for the SIML algorithm.
+
+* An `OpenMP <http://openmp.org>`_-capable compiler is required to take advantage
+  of multiple CPUs (parallel computations over multiple rows of a Tanimoto matrix
+  in :ref:`CPULingo <CPULingo>`). 
+
+* `PyCUDA <http://mathema.tician.de/software/pycuda>`_ version 0.94 or greater is
+  required for NVIDIA GPU support using :ref:`GPULingo <GPULingo>`. Versions 0.93 and
+  previous will not work properly! Note that at the time of this writing, 0.93 is the 
+  most recent release version. If this is still true, then you must retrieve a copy of 
+  the PyCUDA source code from the source repository (following the directions given on 
+  the PyCUDA homepage).
+
+* `PyOpenCL <http://mathema.tician.de/software/pyopencl>`_ is required for NVIDIA/AMD
+  GPU support using :ref:`OCLLingo <OCLLingo>`.
+  
+
+---------------
+Setup Procedure
+---------------
+
+pySIML is distributed as a source tarball using a mostly-standard Python distutils-based
+setup procedure. After untarring the package, most people should be able to run::
+  
+  python setup.py build
+  sudo python setup.py install
+
+In some cases, the setup script will not be able to detect one or more settings properly,
+in which case, the configure option can be used::
+
+  python setup.py configure <options>
+
+The following options are available:
+
+  * ``--enable-openmp``: Force pySIML to be built with OpenMP support.
+  * ``--disable-openmp``: Force pySIML to be built without OpenMP support.
+  * ``--numpy-include=<dir>``: Indicates that the C headers for numpy can be found
+    in <dir>. Note that if, for example, ``arrayobject.h`` is in ``/usr/include/python2.5/numpy/arrayobject.h``,
+    <dir> should be specified as ``/usr/include/python2.5``, NOT ``/usr/include/python2.5/numpy``.
+  * ``--python-include=<dir>``: Indicates that the C headers for Python (e.g., ``Python.h``)
+    can be found in <dir>.
+
+

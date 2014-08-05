@@ -1,0 +1,209 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pySIML Concepts &mdash; pySIML v1.5 documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.5',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pySIML v1.5 documentation" href="index.html" />
+    <link rel="next" title="Preprocessing SMILES in pySIML" href="preprocessing.html" />
+    <link rel="prev" title="Installing pySIML" href="setup.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             accesskey="M">modules</a> |</li>
+        <li class="right" >
+          <a href="preprocessing.html" title="Preprocessing SMILES in pySIML"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="setup.html" title="Installing pySIML"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="pysiml-concepts">
+<span id="concepts"></span><h1>pySIML Concepts<a class="headerlink" href="#pysiml-concepts" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="basics-of-lingo">
+<h2>Basics of LINGO<a class="headerlink" href="#basics-of-lingo" title="Permalink to this headline">¶</a></h2>
+<p>pySIML is designed to compute chemical similarities according to the LINGO
+method <a class="reference external" href="references.html#vidal05">[Vidal05]</a> <a class="reference external" href="references.html#grant06">[Grant06]</a>. LINGO, strictly speaking, is a text-similarity
+algorithm (similar to the d-squared algorithm for sequence comparison); it is
+mapped to chemical similarites by representing molecules in some textual
+format. LINGO characterizes a molecule by taking its textual representation
+(typically a canonical or canonical-isomeric SMILES string), and breaking it
+into all its 4-character substrings. To compare two molecules, each is
+fragmented into its component substrings, and the similarity between the two
+is defined as:</p>
+<div class="math">
+<p><img src="_images/math/43903b7842ce2918d08d3be39b82ca06e52ac8ab.png" alt="\frac{\textrm{number of fragments in common}}{\textrm{total count of distinct fragments}}" /></p>
+</div><p>Or, more technically, consider each molecule A and B to be a multiset, or
+bag, of these fragments (known as &#8220;Lingos&#8221;). The Tanimoto similarity between
+A and B is defined as</p>
+<div class="math">
+<p><img src="_images/math/901ad339360df5074b1ddaaf7b62516fcc7a03b9.png" alt="T_{AB} \equiv \frac{\left| A \cap B \right|}{\left| A \cup B \right|}" /></p>
+</div><p>Several efficient algorithms to calculate LINGO similarities exist (e.g.,
+<a class="reference external" href="references.html#grant06">[Grant06]</a>), which work especially well when comparing a large number of
+molecules to only one single candidate molecule. SIML targets a slightly
+different application area, in which multiple molecules will be compared
+against the same set of &#8220;query&#8221; or &#8220;database&#8221; molecules, either at the
+same time or sometime in the future (by storing precalculated values). By
+precalculating part of the computation, SIML saves a large amount of
+computer time for these repeated searches. Additionally, it allows fast
+implementation on both standard processors (CPUs) as well as graphics cards
+(GPUs) and similar vector processors. For more details on the SIML algorithm,
+please see the publication (pending).</p>
+<p>All LINGO algorithms do some preprocessing on the SMILES strings they are
+given. Typically, ring closure digits will be set to zero (to normalize ring
+assignment); in some variants (e.g. <a class="reference external" href="references.html#vidal05">[Vidal05]</a>), atom names will also be
+remapped. SIML implements two preprocessing methods, described in
+<a class="reference external" href="preprocessing.html#preprocessing"><em>Preprocessing SMILES in pySIML</em></a>.</p>
+</div>
+<div class="section" id="pysiml-computation-model">
+<h2>pySIML Computation Model<a class="headerlink" href="#pysiml-computation-model" title="Permalink to this headline">¶</a></h2>
+<p>The motivating task for pySIML is the calculation of a <strong>Tanimoto matrix</strong>,
+or matrix whose entries are chemical similarities. Each row corresponds to
+a molecule from a set called the <strong>reference set</strong>, and each column to a
+molecule from the <strong>query set</strong>. Given a Tanimoto matrix T, the entry at
+<img class="math" src="_images/math/aecdb3c54197e263152b084e2867785094091466.png" alt="T_{ij}"/> (row <em>i</em>, column <em>j</em>) is the similarity between reference
+molecule <em>i</em> and query molecule <em>j</em>.</p>
+<p>This model is adaptable to a diverse set of problems in cheminformatics.
+Performing a database screen (in which one molecule is compared to many others)
+can be described as calculating a Tanimoto matrix of size 1 x N (one reference
+molecule, and a number of query molecules equal to the size of the database). A
+self-similarity matrix, as might be used for clustering a molecule set,
+corresponds to the creation of an N x N matrix, where the reference and query
+sets are identical. Finally, a multiple-screen or cross-similarity comparison,
+in which two distinct sets are compared to each other in an all-pairs manner,
+is an M x N matrix problem, with M and N being the size of either set.</p>
+<p>In addition to the Tanimoto matrices SIML produces as its output, it takes
+matrices called <strong>SMILES sets</strong> as input. SIML&#8217;s preprocessor/compiler code
+takes sets of SMILES strings, and converts them to a numerical matrix
+representation called a SMILES set. Each SMILES set contains 2 matrices and 2
+vectors:</p>
+<blockquote>
+<ul class="simple">
+<li>One <strong>Lingo matrix</strong> contains numerical representations of the Lingos in
+each SMILES string. Each input SMILES string corresponds to one row in the
+Lingo matrix.</li>
+<li>One <strong>count matrix</strong> contains the multiplicity of each Lingo in the Lingo
+matrix. Each input SMILES string corresponds to one row in the count matrix.</li>
+<li>One <strong>length vector</strong> contains the number of distinct Lingos in each
+molecule.</li>
+<li>One <strong>magnitude vector</strong> contains the total number of Lingos (distinct or
+not) in each molecule.</li>
+</ul>
+</blockquote>
+<p>In general, it is not important to worry about the internal details of these
+representations. However, what is useful to know is that it is possible to
+construct unions and subsets of these SMILES sets. The following code example
+demonstrates:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># lingos, counts, lengths, and mags have been initialized as a SMILES set</span>
+
+<span class="n">lingoSub</span>  <span class="o">=</span> <span class="n">lingos</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">10</span><span class="p">,:]</span>
+<span class="n">countSub</span>  <span class="o">=</span> <span class="n">counts</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">10</span><span class="p">,:]</span>
+<span class="n">lengthSub</span> <span class="o">=</span> <span class="n">lengths</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">10</span><span class="p">]</span>
+<span class="n">magSub</span>    <span class="o">=</span> <span class="n">mags</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">10</span><span class="p">]</span>
+
+<span class="c"># lingoSub, countSub, lengthSub, and magSub together now constitute a</span>
+<span class="c"># SMILES set for the first ten molecules from the original set</span>
+</pre></div>
+</div>
+<p>These SMILES sets are constructed from SMILES strings by the pySIML compiler
+routines (<a class="reference external" href="preprocessing.html#preprocessing"><em>Preprocessing SMILES in pySIML</em></a>).</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">pySIML Concepts</a><ul>
+<li><a class="reference external" href="#basics-of-lingo">Basics of LINGO</a></li>
+<li><a class="reference external" href="#pysiml-computation-model">pySIML Computation Model</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="setup.html"
+                                  title="previous chapter">Installing pySIML</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="preprocessing.html"
+                                  title="next chapter">Preprocessing SMILES in pySIML</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="_sources/concepts.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="preprocessing.html" title="Preprocessing SMILES in pySIML"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="setup.html" title="Installing pySIML"
+             >previous</a> |</li>
+        <li><a href="index.html">pySIML v1.5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2010, Stanford University.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

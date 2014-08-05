@@ -1,0 +1,17 @@
+Metadata-Version: 1.0
+Name: pySIML
+Version: 1.5
+Summary: Python bindings for SIML fast LINGO implementation
+Home-page: https://simtk.org/home/siml
+Author: Imran Haque
+Author-email: ihaque@cs.stanford.edu
+License: BSD
+Description: Python bindings for SIML fast LINGO implementation, supporting LINGO calculation on CPUs and CUDA-capable GPUs
+Platform: Any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
