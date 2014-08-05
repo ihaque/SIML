@@ -1,22 +1,15 @@
-SIML: "Python Single-Instruction, Multiple LINGOs"
+SIML: "Single-Instruction, Multiple LINGOs"
 ====
 
 Version 1.5
+
 Imran S Haque
+
 12 Jan 2010
-https://github.com/ihaque/siml
 
-Forked from SimTK (https://simtk.org/home/siml)
+https://github.com/ihaque/siml (Forked from SimTK, https://simtk.org/home/siml)
 
-CONTENTS
-1. Description
-2. How to build and install
-3. How to run
-4. Licensing
-
-
-
-1. DESCRIPTION
+# DESCRIPTION
 
 pySIML is a library implementing an efficient algorithm for the calculation of
 LINGO chemical similarities [1]. pySIML includes implementations of its
@@ -39,10 +32,9 @@ following paper:
 
 
 
-2. HOW TO BUILD
+# HOW TO BUILD
 
-Prerequisites
--------------
+## Prerequisites
 
 pySIML requires the Python interpreter (has been tested with CPython 2.4 and 2.5),
 and the Numpy module; header files for both Python and Numpy are also needed. 
@@ -56,8 +48,7 @@ been fixed since 0.93, but not yet pushed into a new release package).
 Parallel CPU LINGO calculation requires that pySIML be built with an OpenMP-capable
 C compiler. gcc 4.1 and newer are sufficient; gcc 4.0 is not.
 
-Configuration
--------------
+## Configuration
 
 pySIML is distributed as a source tarball using a mostly-standard Python distutils-based
 setup procedure. After untarring the package, most people should be able to run:
@@ -82,7 +73,7 @@ The following options are available:
           can be found in <dir>.
 
 
-3. HOW TO RUN
+# HOW TO RUN
 
 A demonstration program is available in the examples subdirectory as "benchmark.py". Given
 a file with SMILES strings (one per line), the benchmark can be run as:
@@ -91,6 +82,6 @@ a file with SMILES strings (one per line), the benchmark can be run as:
 
 Additional documentation is available in the doc/ directory and on the SimTK site.
 
-4. LICENSING
+# LICENSING
 
 pySIML is licensed under a "New BSD" license, reproduced in the file LICENSE.
